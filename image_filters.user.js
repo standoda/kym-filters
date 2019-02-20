@@ -126,6 +126,10 @@ function appendMenu() {
           opacity: 0.8;
         }
 
+        .form-popup .btn::-moz-focus-inner {
+           border: 0;
+        }
+
         .form-popup .cancel {
           background-color: red;
         }
