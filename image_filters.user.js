@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Image Filtering
-// @version      0.1
+// @version      0.2
 // @description  Filter images in photo galleries based on entry/user
 // @author       e
 // @match        https://knowyourmeme.com/*photos*
@@ -19,6 +19,8 @@ var $ = unsafeWindow.jQuery;
 var entryFilter = GM_getValue('entryFilter', '');
 var userFilter = GM_getValue('userFilter', '');
 var moveFiltered = GM_getValue('moveFiltered', true);
+var filterNsfw = GM_getValue('filterNsfw', false);
+var filterSpoilers = GM_getValue('filterSpoilers', false);
 var filteredCount = 0;
 var currentItem = $('#photo_gallery .item').first();
 var U = 'Uploaded by';
@@ -38,11 +40,15 @@ function filterPictures() {
             var entry = item.attr('href').replace(/^[^-]*-/, '');
             var user = item.find('.c').text();
             user = user.slice(user.indexOf(U) + U.length);
-            user = user.substring(1, user.length -1).replace(/\n/g, ' ');;
+            user = user.substring(1, user.length -1).replace(/\n/g, ' ');
+
+            var isNsfw = item.find('img').hasClass('img-nsfw');
+            var isSpoiler = item.find('img').hasClass('img-spoiler');
+            var isNsfwSpoiler = (isNsfw && filterNsfw) || (isSpoiler && filterSpoilers);
             //console.log(user);
             if (entry) {
                 if (entryFilter.indexOf('|' + entry + '|') >= 0 && isNotEntry ||
-                    userFilter.indexOf('|' + user + '|') >= 0)
+                    userFilter.indexOf('|' + user + '|') >= 0 || isNsfwSpoiler)
                 {
                     if (moveFiltered) moveToFiltered(item);
                     msnry.remove(currentItem);
@@ -168,7 +174,11 @@ function appendMenu() {
             <textarea id = "user_filter" rows="6" style="width: 100%; height: 100%; resize: none;"></textarea>
             <input id="cbox_movepics" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px;" checked>
             <label for="cbox_movepics" style="font-size: 14px;">Move filtered pictures here</label>
-
+            <br>
+            <input id="cbox_filternsfw" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px;">
+            <label for="cbox_filternsfw" style="font-size: 14px;">Filter nsfw</label>
+            <input id="cbox_filterspoiler" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px; margin-left: 15px">
+            <label for="cbox_filterspoiler" style="font-size: 14px;">Filter spoilers</label>
             <button id = "save_filters" class="btn">✓ Save filters</button>
             </div>
 
@@ -191,10 +201,22 @@ function appendMenu() {
         });
     });
 
-    $('#cbox_movepics').prop("checked", moveFiltered)
+    $('#cbox_movepics').prop("checked", moveFiltered);
     $('#cbox_movepics').change(function() {
         GM_setValue('moveFiltered', this.checked);
         moveFiltered = this.checked;
+    });
+
+    $('#cbox_filternsfw').prop("checked", filterNsfw);
+    $('#cbox_filternsfw').change(function() {
+        GM_setValue('filterNsfw', this.checked);
+        filterNsfw = this.checked;
+    });
+
+    $('#cbox_filterspoiler').prop("checked", filterSpoilers);
+    $('#cbox_filterspoiler').change(function() {
+        GM_setValue('filterSpoilers', this.checked);
+        filterSpoilers = this.checked;
     });
 }
 
