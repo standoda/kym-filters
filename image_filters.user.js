@@ -4,7 +4,6 @@
 // @description  Filter images in photo galleries based on entry/user
 // @author       e
 // @match        https://knowyourmeme.com/*photos*
-// @match        https://knowyourmeme.com/search/*
 // @match        https://knowyourmeme.com/memes/*
 // @match        https://knowyourmeme.com/users/*
 // @match        https://knowyourmeme.com/search*
