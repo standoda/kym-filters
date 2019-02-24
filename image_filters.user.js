@@ -22,7 +22,7 @@ var filterNsfw = GM_getValue('filterNsfw', false);
 var filterSpoilers = GM_getValue('filterSpoilers', false);
 var filteredCount = 0;
 var currentItem = $('#photo_gallery .item').first();
-var U = 'Uploaded by';
+const U = 'Uploaded by';
 var isNotEntry = !Boolean($('#section_header h1').find('a').length);
 console.log(entryFilter);
 console.log(userFilter);
