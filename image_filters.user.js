@@ -94,6 +94,10 @@ function moveToFiltered(pic) {
 function appendMenu() {
     var overlay = `
         <style>
+        .combo-wrapper {
+            display:none !important;
+        }
+
         .open-button {
           background-color: #555;
           color: white;
