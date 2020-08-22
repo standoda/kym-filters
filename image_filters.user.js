@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Image Filtering
-// @version      0.2
+// @version      0.3
 // @description  Filter images in photo galleries based on entry/user
 // @author       e
 // @match        https://knowyourmeme.com/*photos*
@@ -20,50 +20,53 @@ var userFilter = GM_getValue('userFilter', '');
 var moveFiltered = GM_getValue('moveFiltered', true);
 var filterNsfw = GM_getValue('filterNsfw', false);
 var filterSpoilers = GM_getValue('filterSpoilers', false);
+var unveilNsfw = GM_getValue('unveilNsfw', false);
+var unveilSpoilers = GM_getValue('unveilSpoilers', false);
 var filteredCount = 0;
 var currentItem = $('#photo_gallery .item').first();
 const U = 'Uploaded by';
-var isNotEntry = !Boolean($('#section_header h1').find('a').length);
+var isNotEntry = !$('#section_header h1').find('a').length;
 console.log(entryFilter);
 console.log(userFilter);
 
-function filterPictures() {
-    var lastLoadedItem = $('#infscr-loading').next();
-    currentItem = lastLoadedItem.length ? lastLoadedItem : currentItem;
-    //console.log(currentItem);
-    var needUpdate = false;
-    while (currentItem.length) {
-        var nextItem = currentItem.next();
-        if (currentItem.hasClass('item')){
-            var item = currentItem.find('a');
-            var entry = item.attr('href').replace(/^[^-]*-/, '');
-            var user = item.find('.c').text();
-            user = user.slice(user.indexOf(U) + U.length);
-            user = user.substring(1, user.length -1).replace(/\n/g, ' ');
+var msnry = $('#photo_gallery').data('masonry');
 
-            var isNsfw = item.find('img').hasClass('img-nsfw');
-            var isSpoiler = item.find('img').hasClass('img-spoiler');
-            var isNsfwSpoiler = (isNsfw && filterNsfw) || (isSpoiler && filterSpoilers);
-            //console.log(user);
-            if (entry) {
-                if (entryFilter.indexOf('|' + entry + '|') >= 0 && isNotEntry ||
-                    userFilter.indexOf('|' + user + '|') >= 0 || isNsfwSpoiler)
-                {
-                    if (moveFiltered) moveToFiltered(item);
-                    msnry.remove(currentItem);
-                    ++filteredCount;
+$.fn.unveil = function() {
+    var needUpdate = false;
+    $(this).each( function() {
+        var item = $(this.parentNode);
+        var entry = item.attr('href').replace(/^[^-]*-/, '');
+        var user = item.find('.c').text();
+        user = user.slice(user.indexOf(U) + U.length).trim().replace(/\n/g, ' ');
+
+        var imgClasses = this.classList;
+        var isNsfw = imgClasses.contains('img-nsfw');
+        var isSpoiler = imgClasses.contains('img-spoiler');
+        var isNsfwSpoiler = (isNsfw && filterNsfw) || (isSpoiler && filterSpoilers);
+
+        if (entry) {
+            if (entryFilter.indexOf('|' + entry + '|') >= 0 && isNotEntry ||
+                userFilter.indexOf('|' + user + '|') >= 0 || isNsfwSpoiler)
+            {
+                if (moveFiltered) moveToFiltered(item);
+                msnry.remove(item.parent());
+                ++filteredCount;
+                needUpdate = true;
+            } else {
+                // unveil nsfw/spoilers?
+                if ((isNsfw && unveilNsfw) || (isSpoiler && unveilSpoilers)) {
+                    this.src = this.getAttribute('data-original-image-url');
+                    this.height = this.getAttribute('data-original-height');
                     needUpdate = true;
+                } else {
+                    this.src = this.getAttribute('data-src');
                 }
             }
         }
-        currentItem = nextItem;
-    }
+    });
+
     if (needUpdate) {
-        // update the grid with layout() but first temporarily disable the
-        // event handler so we don't enter an infinite loop
-        msnry.off('layoutComplete', filterPictures);
         msnry.layout();
-        msnry.on('layoutComplete', filterPictures);
         $('#filter_open').text('(' + filteredCount + ') Images Filtered');
     }
 }
@@ -94,7 +97,7 @@ function moveToFiltered(pic) {
 function appendMenu() {
     var overlay = `
         <style>
-        .combo-wrapper {
+        .combo-wrapper, #ctoolbar {
             display:none !important;
         }
 
@@ -179,9 +182,14 @@ function appendMenu() {
             <label for="cbox_movepics" style="font-size: 14px;">Move filtered pictures here</label>
             <br>
             <input id="cbox_filternsfw" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px;">
-            <label for="cbox_filternsfw" style="font-size: 14px;">Filter nsfw</label>
-            <input id="cbox_filterspoiler" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px; margin-left: 15px">
-            <label for="cbox_filterspoiler" style="font-size: 14px;">Filter spoilers</label>
+            <label for="cbox_filternsfw" style="font-size: 14px;">Filter NSFW</label>
+            <input id="cbox_filterspoilers" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px; margin-left: 15px">
+            <label for="cbox_filterspoilers" style="font-size: 14px;">Filter spoilers</label>
+            <hr>
+            <input id="cbox_unveilnsfw" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px;">
+            <label for="cbox_unveilnsfw" style="font-size: 14px;">Unveil NSFW</label>
+            <input id="cbox_unveilspoilers" type="checkbox" style="width: 16px; height: 16px; margin-bottom: 15px; margin-left: 8px">
+            <label for="cbox_unveilspoilers" style="font-size: 14px;">Unveil spoilers</label>
             <button id = "save_filters" class="btn">✓ Save filters</button>
             </div>
 
@@ -216,19 +224,32 @@ function appendMenu() {
         filterNsfw = this.checked;
     });
 
-    $('#cbox_filterspoiler').prop("checked", filterSpoilers);
-    $('#cbox_filterspoiler').change(function() {
+    $('#cbox_filterspoilers').prop("checked", filterSpoilers);
+    $('#cbox_filterspoilers').change(function() {
         GM_setValue('filterSpoilers', this.checked);
         filterSpoilers = this.checked;
     });
+
+    $('#cbox_unveilnsfw').prop("checked", unveilNsfw);
+    $('#cbox_unveilnsfw').change(function() {
+        GM_setValue('unveilNsfw', this.checked);
+        unveilNsfw = this.checked;
+    });
+
+    $('#cbox_unveilspoilers').prop("checked", unveilSpoilers);
+    $('#cbox_unveilspoilers').change(function() {
+        GM_setValue('unveilSpoilers', this.checked);
+        unveilSpoilers = this.checked;
+    });
 }
 
-var msnry = $('#photo_gallery').data('masonry');
-if (msnry){
+if (msnry) {
     appendMenu();
     //msnry.options.transitionDuration = '0.2s'
-    msnry.on('layoutComplete', filterPictures);
-    msnry.trigger('layoutComplete');
+    var firstPics = $(msnry.getItemElements()).find('img');
+    firstPics.off("unveil");
+    firstPics.unveil();
+    msnry.layout();
 }
 
 // append a button to entry pages to switch the filter on/off
